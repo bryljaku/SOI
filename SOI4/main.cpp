@@ -10,36 +10,43 @@
 BufferMonitor buffersTab[BUFFERS];
 BuffersMonitor bigBrother;
 
-void *Producer(int producerID)
+void *Producer(void *producerID)
 {
+    int producerNumber = *((int*)producerID);
 	while(1)
 	{
-		bigBrother.findFreeSlotAndAdd(producerID, buffersTab);
-		sleep(2);
+		bigBrother.findFreeSlotAndAdd(producerNumber, buffersTab);
+		sleep(1);
 	}
 }
-void *Consumer(int consumerID)
+void *Consumer(void *consumerID)
 {
+    int consumerNumber = *((int*)consumerID);
 	while(1)
 	{
-		std::cout<<consumerID<<" took "buffersTab[consumerID - 1].readItem()	
-				 <<"from buffer \n";
-		sleep(1);
+		std::cout<<consumerNumber<<" took "<<buffersTab[consumerNumber - 1].readItem(bigBrother, consumerNumber)	
+				 <<" from buffer \n";
+		sleep(8);
 	}
 }
 int main()
 {
+    int idTab[CONSUMERS];
+    for(int i = 0; i < CONSUMERS; i++)
+    idTab[i] = i + 1;
 	pthread_t producers[PRODUCERS], consumers[CONSUMERS];
-	for (int i = 0; i < CONSUMERS, i++)
-		pthread_create(&consumers[i], NULL, Consumer, i);
+	for (int i = 0; i < CONSUMERS; i++)
+		pthread_create(&consumers[i], NULL, Consumer, &idTab[i]);
 	
 	for (int i = 0; i < PRODUCERS; i++)
-		pthread_create(&producers[i], NULL, Producer, i);
-	
-	for (int i = 0; i < CONSUMERS, i++)
-		pthread_cancel(&consumers[i]);
+		pthread_create(&producers[i], NULL, Producer, &idTab[i]);
+
+	sleep(60);
+
+	for (int i = 0; i < CONSUMERS; i++)
+		pthread_cancel(consumers[i]);
 	
 	for (int i = 0; i < PRODUCERS; i++)
-		pthread_cancel(&producers[i]);
+		pthread_cancel(producers[i]);
 	return 0;
 }

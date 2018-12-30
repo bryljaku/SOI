@@ -1,44 +1,48 @@
-#include <stdio>
+#include <stdio.h>
+#include <iostream>
 #include <cstdlib>
-#incldue "monitor.h"
+#include "monitor.h"
 
 
 #define MAXSIZE 10
 #define CONSUMERS 5
 #define PRODUCERS 2
 #define NUMBEROFBUFFS CONSUMERS
-
+class Buffer;
+class BufferMonitor;
+class BuffersMonitor;
 
 //buffer
 class Buffer
 {
     int count, stack[MAXSIZE];
-    
+ public:   
 	Buffer() {count = 0;}
     void pushItem(int item);
     int removeItem();
-    void printBuffer();
+    void printBuffer(int consNumber);
     int sizeOfStack();
-}
+};
 //monitor
 class BufferMonitor: public Monitor
 {
     Condition full, empty;
     Buffer buffer;
-    void pushItem(int item);
-    int readItem(BuffersMonitor &buffersMonitor);
+    public:
+    void pushItem(int item, int consNumber);
+    int readItem(BuffersMonitor &buffersMonitor, int consNumber);
     int getSize();
-}
+};
 //Manage monitors
 class BuffersMonitor: Monitor
 {
     int emptyCount;
     Condition allEmpty;
-
-    GroupMonitor() {emptyCount = MAXSIZE * CONSUMERS;}
-    void findFreeSlotAndAdd(const int * tab, BufferMonitor *buff); //tab of monitorsl
+public:
+    BuffersMonitor() {emptyCount = MAXSIZE * CONSUMERS;}
+    void findFreeSlotAndAdd(int producerID, BufferMonitor *buff); //tab of monitorsl
     void up();
-}
+};
 
 //////////////////////////////////////////////////////
 
@@ -50,9 +54,9 @@ int Buffer::removeItem()
 {
     return stack[--count];
 }
-void Buffer::printBuffer()
+void Buffer::printBuffer(int consNumber)
 {
-    std::cout<<"Buffer elements: ";
+    std::cout<<consNumber<<" Buffer elements: ";
     for (int i = 0; i < count; i++)
         std::cout<<stack[i]<<' ';
     std::cout<<'\n';
@@ -63,24 +67,24 @@ int Buffer::sizeOfStack()
 }
 ////////////////////////////////////////////////////////////
 
-void BufferMonitor::pushItem(int item)
+void BufferMonitor::pushItem(int item, int consNumber)
 {
     enter();
     while (buffer.sizeOfStack() == MAXSIZE)
         wait(empty);
     buffer.pushItem(item);
-	buffer.printBuffer();
+	buffer.printBuffer(consNumber);
     if (buffer.sizeOfStack() == 1)
         signal(full);
     leave();
 }
-int BufferMonitor::readItem(BuffersMonitor &buffersMonitor)
+int BufferMonitor::readItem(BuffersMonitor &buffersMonitor, int consNumber)
 {
     enter();
     while (buffer.sizeOfStack() == 0)
-        wait(empty);
+        wait(full);
     int valueToReturn = buffer.removeItem();
-	buffer.printBuffer();
+	buffer.printBuffer(consNumber);
     if (buffer.sizeOfStack() == MAXSIZE - 1)
         signal(empty);
     leave();
@@ -106,7 +110,7 @@ void BuffersMonitor::findFreeSlotAndAdd(int producerID, BufferMonitor *buff) //t
     while (buff[i].getSize() == MAXSIZE)//searching for free slot
         i = (i + 1) % NUMBEROFBUFFS;
     std::cout<<producerID<<" put item in "<<i<<" buffer.\n";
-    buff[i].pushItem(rand() % 50);
+    buff[i].pushItem(rand() % 50, i);
     emptyCount--;
     leave();
 }
@@ -115,6 +119,8 @@ void BuffersMonitor::up()
 {
     enter();
     emptyCount++;
+    if(emptyCount == 1)
+        signal(allEmpty);
     leave();
 }
 //////////////////////////////////////////////////////////////////
